@@ -5,6 +5,8 @@ let qrCodeImage // Variable to store the QR code image
 let imageCount = 0  // Counter to track the number of images
 let confettiParticles = []  // Array to store the confetti particles
 let confettiDuration = 100  // Duration for confetti effect
+let popSound // Variable to store the sound object (HTML5 Audio API)
+let imagesDrawn = [] // To track which images have been drawn
 
 export async function setupP5(p, supabase) {
     supabaseClient = supabase
@@ -15,6 +17,9 @@ export async function setupP5(p, supabase) {
 
     // Load the QR code image to display in the center of the circle
     qrCodeImage = p.loadImage("/qr-code.png")
+
+    // Use the HTML5 Audio API to load and play sound
+    popSound = new Audio("/pop.mp3")  // Load the sound from the public folder
 
     // Load the initial images
     await loadImages(p)
@@ -46,7 +51,7 @@ async function loadImages(p) {
         p.loadImage(row.image_url, (img) => {
             images.push(img)  // Add the new image
             imageCount++  // Increment the image counter
-            triggerConfetti(p)  // Trigger confetti effect on new image upload
+            imagesDrawn.push(false) // Track if the image has been drawn
         })
     }
 }
@@ -54,15 +59,22 @@ async function loadImages(p) {
 // Function to trigger confetti animation
 function triggerConfetti(p) {
     for (let i = 0; i < 100; i++) {  // Create 100 confetti particles
-        confettiParticles.push(new Confetti(p))
+        // Random position inside the circle
+        const angle = p.random(360)
+        const distance = p.random(0, radius)  // Random distance within the circle
+
+        const x = p.width / 2 + distance * p.cos(angle)
+        const y = p.height / 2 + distance * p.sin(angle)
+
+        confettiParticles.push(new Confetti(p, x, y))  // Pass position to Confetti
     }
 }
 
 // Confetti particle class
 class Confetti {
-    constructor(p) {
-        this.x = p.width / 2
-        this.y = p.height / 2
+    constructor(p, x, y) {
+        this.x = x
+        this.y = y
         this.size = p.random(5, 15)  // Random size
         this.speedX = p.random(-5, 5)  // Random horizontal speed
         this.speedY = p.random(-5, 5)  // Random vertical speed
@@ -75,7 +87,6 @@ class Confetti {
         this.y += this.speedY
         this.lifetime -= 5  // Fade out the particle over time
 
-        // Remove the particle when its lifetime is over
         if (this.lifetime <= 0) {
             return false
         }
@@ -133,6 +144,13 @@ export function drawP5(p) {
         } else {
             // If the image is taller, adjust height
             imageWidth = maxImageSize * aspectRatio
+        }
+
+        // Check if the image has been drawn for the first time
+        if (!imagesDrawn[i]) {
+            imagesDrawn[i] = true // Mark the image as drawn
+            triggerConfetti(p)  // Trigger confetti effect
+            popSound.play()  // Play the sound effect when the image first appears
         }
 
         p.push()
