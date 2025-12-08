@@ -161,9 +161,13 @@ export function drawP5(p) {
         p.pop()
     }
 
-    // Draw the QR code in the center
+    // Move the QR code outside the circle (bottom-left of the canvas)
+    const qrCodeSize = 300
+    const qrDistance = radius  // Adjust this to control the QR code's position
+
+    // Position QR outside, bottom-left of the circle
     p.imageMode(p.CENTER)
-    p.image(qrCodeImage, p.width / 3, p.height / 3, 300, 300)
+    p.image(qrCodeImage, p.width / 2 - 1500, p.height / 2 + 800, qrCodeSize, qrCodeSize)
 
     // Update and display the confetti particles
     for (let i = confettiParticles.length - 1; i >= 0; i--) {
