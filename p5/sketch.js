@@ -3,6 +3,8 @@ let supabaseClient
 let radius = 950  // Radius for the circle
 let qrCodeImage // Variable to store the QR code image
 let imageCount = 0  // Counter to track the number of images
+let confettiParticles = []  // Array to store the confetti particles
+let confettiDuration = 100  // Duration for confetti effect
 
 export async function setupP5(p, supabase) {
     supabaseClient = supabase
@@ -35,19 +37,55 @@ async function loadImages(p) {
         .select("*")
         .order("id", { ascending: false })
 
-    // Clear the images array if we exceed 10 images
-    if (imageCount >= 10) {
-        console.log("Resetting images after 10 uploads")
-        images = []  // Clear images array
-        imageCount = 0  // Reset image counter
-    }
+    // Reset images array and count when new images are loaded
+    images = []  // Clear the images array first
+    imageCount = 0  // Reset image counter
 
     // Load new images into the array
     for (let row of data) {
         p.loadImage(row.image_url, (img) => {
             images.push(img)  // Add the new image
             imageCount++  // Increment the image counter
+            triggerConfetti(p)  // Trigger confetti effect on new image upload
         })
+    }
+}
+
+// Function to trigger confetti animation
+function triggerConfetti(p) {
+    for (let i = 0; i < 100; i++) {  // Create 100 confetti particles
+        confettiParticles.push(new Confetti(p))
+    }
+}
+
+// Confetti particle class
+class Confetti {
+    constructor(p) {
+        this.x = p.width / 2
+        this.y = p.height / 2
+        this.size = p.random(5, 15)  // Random size
+        this.speedX = p.random(-5, 5)  // Random horizontal speed
+        this.speedY = p.random(-5, 5)  // Random vertical speed
+        this.color = p.color(p.random(255), p.random(255), p.random(255))  // Random color
+        this.lifetime = 255  // Full opacity initially
+    }
+
+    update(p) {
+        this.x += this.speedX
+        this.y += this.speedY
+        this.lifetime -= 5  // Fade out the particle over time
+
+        // Remove the particle when its lifetime is over
+        if (this.lifetime <= 0) {
+            return false
+        }
+        return true
+    }
+
+    display(p) {
+        p.noStroke()
+        p.fill(this.color.levels[0], this.color.levels[1], this.color.levels[2], this.lifetime)
+        p.ellipse(this.x, this.y, this.size, this.size)
     }
 }
 
@@ -61,30 +99,61 @@ export function drawP5(p) {
     p.ellipse(p.width / 2, p.height / 2, 2200, 2200)  // Circle with diameter of 2200px
 
     const angleStep = 360 / Math.max(images.length, 1)
-    const maxImageSize = 200  // Maximum image size, adjust as necessary
+
+    // Dynamically adjust image size based on number of images
+    const maxImageSize = Math.min(350, 2200 / images.length)  // Increase max size and adjust for more images
 
     // Draw the images around the circle
     for (let i = 0; i < images.length; i++) {
         const angle = i * angleStep
-        const x = p.width / 2 + radius * p.cos(angle)
-        const y = p.height / 2 + radius * p.sin(angle)
+        // Adjust the radius dynamically to move images towards the center based on image size
+        const dynamicRadius = radius - (maxImageSize / 2)  // Move closer to the center based on image size
+
+        const x = p.width / 2 + dynamicRadius * p.cos(angle)
+        const y = p.height / 2 + dynamicRadius * p.sin(angle)
 
         const img = images[i]
         if (!img) continue
 
-        // Scale the images to fit inside the circle
-        const imageSize = Math.min(maxImageSize, radius * 2 / images.length)
+        // Get the image's original width and height
+        const imgWidth = img.width
+        const imgHeight = img.height
+
+        // Calculate the aspect ratio of the image
+        const aspectRatio = imgWidth / imgHeight
+
+        // Scale the image proportionally to fit within the circle, but larger
+        let imageWidth = maxImageSize
+        let imageHeight = maxImageSize
+
+        // Adjust dimensions to maintain the aspect ratio
+        if (imgWidth > imgHeight) {
+            // If the image is wider, adjust width
+            imageHeight = maxImageSize / aspectRatio
+        } else {
+            // If the image is taller, adjust height
+            imageWidth = maxImageSize * aspectRatio
+        }
 
         p.push()
         p.translate(x, y)
-        p.rotate(angle + 90)
         p.imageMode(p.CENTER)
-        p.image(img, 0, 0, imageSize, imageSize)  // Scale images proportionally
+        // Draw the image without distortion, scaled to fit inside the circle
+        p.image(img, 0, 0, imageWidth, imageHeight)
         p.pop()
     }
 
-    // Draw the QR code in the center of the circle
-    const qrCodeSize = 300  // Size of the QR code
+    // Draw the QR code in the center
     p.imageMode(p.CENTER)
-    p.image(qrCodeImage, p.width / 2, p.height / 2, qrCodeSize, qrCodeSize)  // Position QR in center of the circle
+    p.image(qrCodeImage, p.width / 2, p.height / 2, 300, 300)
+
+    // Update and display the confetti particles
+    for (let i = confettiParticles.length - 1; i >= 0; i--) {
+        const particle = confettiParticles[i]
+        if (!particle.update(p)) {
+            confettiParticles.splice(i, 1)  // Remove particle when lifetime ends
+        } else {
+            particle.display(p)  // Display the particle
+        }
+    }
 }
