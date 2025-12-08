@@ -107,7 +107,7 @@ export function drawP5(p) {
     p.noFill()
     p.stroke(255)
     p.strokeWeight(4)
-    p.ellipse(p.width / 2, p.height / 2, 2200, 2200)  // Circle with diameter of 2200px
+    p.ellipse(p.width / 2, p.height / 2, 2160, 2160)  // Circle with diameter of 2200px
 
     const angleStep = 360 / Math.max(images.length, 1)
 
@@ -163,7 +163,7 @@ export function drawP5(p) {
 
     // Draw the QR code in the center
     p.imageMode(p.CENTER)
-    p.image(qrCodeImage, p.width / 2, p.height / 2, 300, 300)
+    p.image(qrCodeImage, p.width / 3, p.height / 3, 300, 300)
 
     // Update and display the confetti particles
     for (let i = confettiParticles.length - 1; i >= 0; i--) {
