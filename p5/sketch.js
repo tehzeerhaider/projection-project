@@ -112,7 +112,7 @@ export function drawP5(p) {
     const angleStep = 360 / Math.max(images.length, 1)
 
     // Dynamically adjust image size based on number of images
-    const maxImageSize = Math.min(900, 2160 / images.length)  // Increase max size and adjust for more images
+    const maxImageSize = Math.min(700, 2160 / images.length)  // Increase max size and adjust for more images
 
     // Draw the images around the circle
     for (let i = 0; i < images.length; i++) {
