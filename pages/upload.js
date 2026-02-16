@@ -15,9 +15,6 @@ export default function UploadPage() {
     const [loading, setLoading] = useState(false)
     const [status, setStatus] = useState("")
 
-    /* ----------------------------------
-       Load existing uploaders
-    ---------------------------------- */
     useEffect(() => {
         fetch("/api/get-uploaders")
             .then(res => res.json())
@@ -29,9 +26,6 @@ export default function UploadPage() {
         setCroppedAreaPixels(pixels)
     }, [])
 
-    /* ----------------------------------
-       Upload handler
-    ---------------------------------- */
     async function handleUpload() {
         if (!imageFile || !croppedAreaPixels || !uploaderName) {
             setStatus("❌ Please select image and enter your name")

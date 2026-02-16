@@ -25,7 +25,7 @@ export default async function handler(req, res) {
       image,
       fileName,
       uploader_name,
-      connected_to, // OPTIONAL
+      connected_to,
       scale = 1,
     } = req.body
 
@@ -35,9 +35,6 @@ export default async function handler(req, res) {
       })
     }
 
-    /* ----------------------------------
-       1. Upload image to Supabase Storage
-    ---------------------------------- */
     const buffer = Buffer.from(image, "base64")
 
     const { error: uploadError } = await supabase
@@ -55,18 +52,12 @@ export default async function handler(req, res) {
       .from("uploads")
       .getPublicUrl(fileName)
 
-    /* ----------------------------------
-       2. Generate random position (inside circle)
-    ---------------------------------- */
     const angle = Math.random() * Math.PI * 2
     const radius = Math.sqrt(Math.random()) * CIRCLE_RADIUS
 
     const pos_x = radius * Math.cos(angle)
     const pos_y = radius * Math.sin(angle)
 
-    /* ----------------------------------
-       3. Validate optional connection
-    ---------------------------------- */
     let finalConnectedTo = null
 
     if (connected_to) {
@@ -81,9 +72,6 @@ export default async function handler(req, res) {
       }
     }
 
-    /* ----------------------------------
-       4. Insert DB record
-    ---------------------------------- */
     const { error: insertError } = await supabase
       .from("images")
       .insert([

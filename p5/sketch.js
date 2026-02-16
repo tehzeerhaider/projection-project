@@ -1,24 +1,15 @@
-// ==================================================
-// CONSTANTS
-// ==================================================
 const CANVAS_WIDTH = 3840
 const CANVAS_HEIGHT = 2160
 
 const CIRCLE_DIAMETER = 2000
 const CIRCLE_RADIUS = CIRCLE_DIAMETER / 2
 
-// ==================================================
-// STATE
-// ==================================================
 const imageStore = new Map() // id -> { img, meta }
 let supabaseClient
 let circleCenter
 let confetti = []
 let highlightImageId = null
 
-// ==================================================
-// SETUP
-// ==================================================
 export async function setupP5(p, supabase) {
     supabaseClient = supabase
 
@@ -33,7 +24,6 @@ export async function setupP5(p, supabase) {
 
     await loadInitialImages(p)
 
-    // ---------- realtime images ----------
     supabaseClient
         .channel("images")
         .on(
@@ -53,9 +43,6 @@ export async function setupP5(p, supabase) {
     p.loop()
 }
 
-// ==================================================
-// DATA LOADING
-// ==================================================
 async function loadInitialImages(p) {
     const { data } = await supabaseClient
         .from("images")
@@ -80,9 +67,6 @@ function loadImageOnce(p, row) {
     })
 }
 
-// ==================================================
-// DRAW LOOP
-// ==================================================
 export function drawP5(p) {
     p.background(0)
 
@@ -92,9 +76,6 @@ export function drawP5(p) {
     updateConfetti(p)
 }
 
-// ==================================================
-// RENDERING
-// ==================================================
 function drawCircle(p) {
     p.noFill()
     p.stroke(255, 120)
@@ -114,7 +95,6 @@ function drawImages(p) {
         const scale = meta.scale || 1
         const size = baseSize * scale
 
-        // highlight newly added image
         if (id === highlightImageId) {
             p.noFill()
             p.stroke(255, 180)
@@ -155,9 +135,6 @@ function drawConnections(p) {
     }
 }
 
-// ==================================================
-// CONFETTI
-// ==================================================
 function spawnConfetti(p) {
     for (let i = 0; i < 60; i++) {
         const angle = p.random(360)
