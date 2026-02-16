@@ -1,64 +1,133 @@
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
+import Cropper from "react-easy-crop"
+import getCroppedImg from "../utils/cropImage"
 
 export default function UploadPage() {
+    const [imageFile, setImageFile] = useState(null)
+    const [crop, setCrop] = useState({ x: 0, y: 0 })
+    const [zoom, setZoom] = useState(1)
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
+
+    const [uploaders, setUploaders] = useState([])
+    const [connectedTo, setConnectedTo] = useState("")
+    const [uploaderName, setUploaderName] = useState("")
+
     const [loading, setLoading] = useState(false)
     const [status, setStatus] = useState("")
 
-    async function handleUpload(e) {
-        const file = e.target.files[0]
-        if (!file) return
+    /* ----------------------------------
+       Load existing uploaders
+    ---------------------------------- */
+    useEffect(() => {
+        fetch("/api/get-uploaders")
+            .then(res => res.json())
+            .then(data => setUploaders(data || []))
+            .catch(() => { })
+    }, [])
+
+    const onCropComplete = useCallback((_, pixels) => {
+        setCroppedAreaPixels(pixels)
+    }, [])
+
+    /* ----------------------------------
+       Upload handler
+    ---------------------------------- */
+    async function handleUpload() {
+        if (!imageFile || !croppedAreaPixels || !uploaderName) {
+            setStatus("❌ Please select image and enter your name")
+            return
+        }
 
         setLoading(true)
         setStatus("Uploading...")
 
-        const reader = new FileReader()
+        try {
+            const croppedBase64 = await getCroppedImg(
+                imageFile,
+                croppedAreaPixels
+            )
 
-        reader.onloadend = async () => {
-            try {
-                const base64Image = reader.result.split(",")[1]
-                const fileName = `image_${Date.now()}.jpg`
+            const res = await fetch("/api/upload", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    image: croppedBase64.split(",")[1],
+                    fileName: `image_${Date.now()}.jpg`,
+                    uploader_name: uploaderName,
+                    connected_to: connectedTo || null,
+                    scale: 1 // FIXED: do not use crop zoom
+                }),
+            })
 
-                const res = await fetch(`${window.location.origin}/api/upload`, {  // Use absolute URL
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ image: base64Image, fileName }),
-                })
+            if (!res.ok) throw new Error("Upload failed")
 
-                // Check if the request was successful
-                if (!res.ok) {
-                    throw new Error(`Failed to upload image: ${res.statusText}`)
-                }
-
-                const data = await res.json()
-
-                if (data.error) {
-                    setStatus("❌ Upload failed: " + data.error)
-                } else {
-                    setStatus("✅ Upload successful!")
-                }
-            } catch (err) {
-                console.error("Upload error:", err)
-                setStatus("❌ Upload failed. Please try again.")
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        reader.onerror = (error) => {
-            console.error("FileReader error:", error)
-            setStatus("❌ Error reading the file. Please try again.")
+            setStatus("✅ Upload successful!")
+            setImageFile(null)
+            setConnectedTo("")
+            setUploaderName("")
+        } catch (err) {
+            console.error(err)
+            setStatus("❌ Upload failed")
+        } finally {
             setLoading(false)
         }
-
-        reader.readAsDataURL(file)  // Read the file as base64
     }
 
     return (
         <div style={{ background: "#000", color: "#fff", minHeight: "100vh", padding: 40 }}>
             <h1>Upload Image</h1>
-            <input type="file" accept="image/*" onChange={handleUpload} />
-            {loading && <p>{status}</p>}
-            {!loading && status && <p>{status}</p>}
+
+            <input type="file" accept="image/*"
+                onChange={e => setImageFile(e.target.files[0])}
+            />
+
+            <input
+                placeholder="Your name"
+                value={uploaderName}
+                onChange={e => setUploaderName(e.target.value)}
+                style={{ display: "block", marginTop: 15 }}
+            />
+
+            {uploaders.length > 0 && (
+                <select
+                    value={connectedTo}
+                    onChange={e => setConnectedTo(e.target.value)}
+                    style={{ display: "block", marginTop: 15 }}
+                >
+                    <option value="">No connection</option>
+                    {uploaders.map(u => (
+                        <option key={u.id} value={u.id}>
+                            Connect to {u.uploader_name}
+                        </option>
+                    ))}
+                </select>
+            )}
+
+            {imageFile && (
+                <div style={{ position: "relative", width: 400, height: 400, marginTop: 20 }}>
+                    <Cropper
+                        image={URL.createObjectURL(imageFile)}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={1}
+                        cropShape="round"
+                        showGrid={false}
+                        onCropChange={setCrop}
+                        onZoomChange={setZoom}
+                        onCropComplete={onCropComplete}
+                    />
+                </div>
+            )}
+
+            <button
+                onClick={handleUpload}
+                disabled={loading}
+                style={{ display: "block", marginTop: 30 }}
+            >
+                Upload
+            </button>
+
+            {status && <p>{status}</p>}
         </div>
     )
 }
