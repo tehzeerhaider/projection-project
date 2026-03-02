@@ -1,168 +1,204 @@
+// ==================================================
+// CONSTANTS
+// ==================================================
 const CANVAS_WIDTH = 3840
 const CANVAS_HEIGHT = 2160
-
 const CIRCLE_DIAMETER = 2000
 const CIRCLE_RADIUS = CIRCLE_DIAMETER / 2
 
-const imageStore = new Map() // id -> { img, meta }
-let supabaseClient
-let circleCenter
+const DOT_SIZE = 12
+const TEXT_SIZE = 14
+const MIN_DISTANCE = 26   // collision threshold
+
+// ==================================================
+// STATE
+// ==================================================
+const nodes = new Map()
+const connections = []
+
+let center
 let confetti = []
-let highlightImageId = null
+let anchorId = null
+let pulseFrame = 0
 
+// ==================================================
+// SETUP
+// ==================================================
 export async function setupP5(p, supabase) {
-    supabaseClient = supabase
-
     p.createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
-    p.angleMode(p.DEGREES)
-    p.imageMode(p.CENTER)
+    p.textAlign(p.CENTER, p.CENTER)
+    p.textSize(TEXT_SIZE)
+    p.smooth()
 
-    circleCenter = {
-        x: CANVAS_WIDTH / 2,
-        y: CANVAS_HEIGHT / 2,
-    }
+    center = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 }
 
-    await loadInitialImages(p)
+    const { data: n } = await supabase.from("nodes").select("*").order("created_at")
+    const { data: c } = await supabase.from("connections").select("*")
 
-    supabaseClient
-        .channel("images")
-        .on(
-            "postgres_changes",
-            { event: "INSERT", schema: "public", table: "images" },
-            async payload => {
-                const row = payload.new
-                if (!imageStore.has(row.id)) {
-                    await loadImageOnce(p, row)
-                    highlightImageId = row.id
-                    spawnConfetti(p)
-                }
-            }
-        )
+    n.forEach(node => {
+        nodes.set(node.id, node)
+        if (!anchorId) anchorId = node.id
+    })
+    connections.push(...c)
+
+    supabase
+        .channel("nodes")
+        .on("postgres_changes", { event: "INSERT", table: "nodes" }, pld => {
+            nodes.set(pld.new.id, pld.new)
+            if (!anchorId) anchorId = pld.new.id
+            spawnConfetti(p)
+        })
         .subscribe()
 
-    p.loop()
-}
-
-async function loadInitialImages(p) {
-    const { data } = await supabaseClient
-        .from("images")
-        .select("*")
-        .order("created_at", { ascending: true })
-
-    if (!data) return
-
-    for (const row of data) {
-        if (!imageStore.has(row.id)) {
-            await loadImageOnce(p, row)
-        }
-    }
-}
-
-function loadImageOnce(p, row) {
-    return new Promise(resolve => {
-        p.loadImage(row.image_url, img => {
-            imageStore.set(row.id, { img, meta: row })
-            resolve()
+    supabase
+        .channel("connections")
+        .on("postgres_changes", { event: "INSERT", table: "connections" }, pld => {
+            connections.push(pld.new)
         })
-    })
+        .subscribe()
 }
 
+// ==================================================
+// DRAW LOOP
+// ==================================================
 export function drawP5(p) {
-    p.background(0)
+    p.background(255)
 
     drawCircle(p)
+    resolveCollisions()
     drawConnections(p)
-    drawImages(p)
+    drawNodes(p)
+    drawAnchorPulse(p)
     updateConfetti(p)
+
+    pulseFrame++
 }
 
+// ==================================================
+// RENDERING
+// ==================================================
 function drawCircle(p) {
     p.noFill()
-    p.stroke(255, 120)
+    p.stroke(220)
     p.strokeWeight(3)
-    p.circle(circleCenter.x, circleCenter.y, CIRCLE_DIAMETER)
+    p.circle(center.x, center.y, CIRCLE_DIAMETER)
 }
 
-function drawImages(p) {
-    const count = imageStore.size
-    if (count === 0) return
+// ------------------
+// NODES
+// ------------------
+function drawNodes(p) {
+    for (const node of nodes.values()) {
+        const x = center.x + node.pos_x
+        const y = center.y + node.pos_y
 
-    const baseSize = Math.max(48, 420 - count * 3.6) // fits ~100 images
+        p.noStroke()
+        p.fill(node.color)
+        p.circle(x, y, DOT_SIZE)
 
-    for (const [id, { img, meta }] of imageStore.entries()) {
-        const x = circleCenter.x + meta.pos_x
-        const y = circleCenter.y + meta.pos_y
-        const scale = meta.scale || 1
-        const size = baseSize * scale
-
-        if (id === highlightImageId) {
-            p.noFill()
-            p.stroke(255, 180)
-            p.strokeWeight(4)
-            p.circle(x, y, size + 24)
-        }
-
-        p.image(img, x, y, size, size)
+        p.fill(0)
+        p.text(node.initials, x, y - 16)
     }
 }
 
+// ------------------
+// CONNECTIONS (subtle pulse)
+// ------------------
 function drawConnections(p) {
-    p.strokeWeight(2)
-    p.noFill()
+    const alphaPulse = 120 + p.sin(pulseFrame * 0.03) * 40
+    p.strokeWeight(1.5)
 
-    for (const { meta } of imageStore.values()) {
-        if (!meta.connected_to) continue
+    for (const c of connections) {
+        const a = nodes.get(c.from_node)
+        const b = nodes.get(c.to_node)
+        if (!a || !b) continue
 
-        const target = imageStore.get(meta.connected_to)
-        if (!target) continue
+        // Convert color string to p5 color
+        const colorA = typeof a.color === "string" ? p.color(a.color) : a.color
+        p.stroke(colorA.levels[0], colorA.levels[1], colorA.levels[2], alphaPulse)
 
-        const x1 = circleCenter.x + meta.pos_x
-        const y1 = circleCenter.y + meta.pos_y
-        const x2 = circleCenter.x + target.meta.pos_x
-        const y2 = circleCenter.y + target.meta.pos_y
-
-        const t = p.frameCount * 0.02
-        const wobbleX = p.sin(t) * 6
-        const wobbleY = p.cos(t) * 6
-
-        p.stroke(255, 90)
         p.line(
-            x1 + wobbleX,
-            y1 + wobbleY,
-            x2 - wobbleX,
-            y2 - wobbleY
+            center.x + a.pos_x,
+            center.y + a.pos_y,
+            center.x + b.pos_x,
+            center.y + b.pos_y
         )
     }
 }
 
-function spawnConfetti(p) {
-    for (let i = 0; i < 60; i++) {
-        const angle = p.random(360)
-        const r = p.random(0, CIRCLE_RADIUS)
+// ------------------
+// ANCHOR PULSE
+// ------------------
+function drawAnchorPulse(p) {
+    if (!anchorId) return
+    const anchor = nodes.get(anchorId)
+    if (!anchor) return
 
+    const x = center.x + anchor.pos_x
+    const y = center.y + anchor.pos_y
+
+    const r = 22 + p.sin(pulseFrame * 0.05) * 6
+    const a = 120 + p.sin(pulseFrame * 0.05) * 60
+
+    p.noFill()
+    p.stroke(0, a)
+    p.strokeWeight(2)
+    p.circle(x, y, r)
+}
+
+// ==================================================
+// COLLISION AVOIDANCE (SOFT, STABLE)
+// ==================================================
+function resolveCollisions() {
+    const list = Array.from(nodes.values())
+
+    for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+            const a = list[i]
+            const b = list[j]
+
+            const dx = a.pos_x - b.pos_x
+            const dy = a.pos_y - b.pos_y
+            const dist = Math.sqrt(dx * dx + dy * dy)
+
+            if (dist > 0 && dist < MIN_DISTANCE) {
+                const push = (MIN_DISTANCE - dist) * 0.015
+                const nx = dx / dist
+                const ny = dy / dist
+
+                a.pos_x += nx * push
+                a.pos_y += ny * push
+                b.pos_x -= nx * push
+                b.pos_y -= ny * push
+            }
+        }
+    }
+}
+
+// ==================================================
+// CONFETTI
+// ==================================================
+function spawnConfetti(p) {
+    for (let i = 0; i < 40; i++) {
         confetti.push({
-            x: circleCenter.x + r * p.cos(angle),
-            y: circleCenter.y + r * p.sin(angle),
-            vx: p.random(-1, 1),
-            vy: p.random(-2.2, -0.8),
-            life: 140,
-            size: p.random(2, 4),
+            x: center.x,
+            y: center.y,
+            vx: p.random(-2, 2),
+            vy: p.random(-3, -1),
+            life: 80,
         })
     }
 }
 
 function updateConfetti(p) {
     p.noStroke()
-
     for (let i = confetti.length - 1; i >= 0; i--) {
         const c = confetti[i]
         c.x += c.vx
         c.y += c.vy
         c.life--
-
-        p.fill(255, c.life * 1.6)
-        p.circle(c.x, c.y, c.size)
-
+        p.fill(0, c.life * 3)
+        p.circle(c.x, c.y, 3)
         if (c.life <= 0) confetti.splice(i, 1)
     }
 }

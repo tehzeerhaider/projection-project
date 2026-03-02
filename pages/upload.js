@@ -1,127 +1,80 @@
-import { useState, useEffect, useCallback } from "react"
-import Cropper from "react-easy-crop"
-import getCroppedImg from "../utils/cropImage"
+import { useEffect, useState } from "react"
 
 export default function UploadPage() {
-    const [imageFile, setImageFile] = useState(null)
-    const [crop, setCrop] = useState({ x: 0, y: 0 })
-    const [zoom, setZoom] = useState(1)
-    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
-
-    const [uploaders, setUploaders] = useState([])
-    const [connectedTo, setConnectedTo] = useState("")
-    const [uploaderName, setUploaderName] = useState("")
-
-    const [loading, setLoading] = useState(false)
+    const [name, setName] = useState("")
+    const [connectTo, setConnectTo] = useState("")
+    const [nodes, setNodes] = useState([])
     const [status, setStatus] = useState("")
 
     useEffect(() => {
-        fetch("/api/get-uploaders")
+        fetch("/api/get-names")
             .then(res => res.json())
-            .then(data => setUploaders(data || []))
-            .catch(() => { })
+            .then(setNodes)
     }, [])
 
-    const onCropComplete = useCallback((_, pixels) => {
-        setCroppedAreaPixels(pixels)
-    }, [])
+    const isFirst = nodes.length === 0
 
-    async function handleUpload() {
-        if (!imageFile || !croppedAreaPixels || !uploaderName) {
-            setStatus("❌ Please select image and enter your name")
+    async function handleSubmit() {
+        if (!name) {
+            setStatus("❌ Please enter your name")
             return
         }
 
-        setLoading(true)
+        if (!isFirst && !connectTo) {
+            setStatus("❌ Please select a connection")
+            return
+        }
+
         setStatus("Uploading...")
 
-        try {
-            const croppedBase64 = await getCroppedImg(
-                imageFile,
-                croppedAreaPixels
-            )
+        const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, connectTo }),
+        })
 
-            const res = await fetch("/api/upload", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    image: croppedBase64.split(",")[1],
-                    fileName: `image_${Date.now()}.jpg`,
-                    uploader_name: uploaderName,
-                    connected_to: connectedTo || null,
-                    scale: 1 // FIXED: do not use crop zoom
-                }),
-            })
-
-            if (!res.ok) throw new Error("Upload failed")
-
-            setStatus("✅ Upload successful!")
-            setImageFile(null)
-            setConnectedTo("")
-            setUploaderName("")
-        } catch (err) {
-            console.error(err)
+        if (!res.ok) {
             setStatus("❌ Upload failed")
-        } finally {
-            setLoading(false)
+        } else {
+            setStatus("✅ Added to circle")
+            setName("")
+            setConnectTo("")
         }
     }
 
     return (
-        <div style={{ background: "#000", color: "#fff", minHeight: "100vh", padding: 40 }}>
-            <h1>Upload Image</h1>
-
-            <input type="file" accept="image/*"
-                onChange={e => setImageFile(e.target.files[0])}
-            />
+        <div style={{ padding: 40, background: "#000000", minHeight: "100vh" }}>
+            <h2>Join the Circle</h2>
 
             <input
                 placeholder="Your name"
-                value={uploaderName}
-                onChange={e => setUploaderName(e.target.value)}
-                style={{ display: "block", marginTop: 15 }}
+                value={name}
+                onChange={e => setName(e.target.value)}
+                style={{ display: "block", marginBottom: 15 }}
             />
 
-            {uploaders.length > 0 && (
-                <select
-                    value={connectedTo}
-                    onChange={e => setConnectedTo(e.target.value)}
-                    style={{ display: "block", marginTop: 15 }}
-                >
-                    <option value="">No connection</option>
-                    {uploaders.map(u => (
-                        <option key={u.id} value={u.id}>
-                            Connect to {u.uploader_name}
-                        </option>
-                    ))}
-                </select>
-            )}
-
-            {imageFile && (
-                <div style={{ position: "relative", width: 400, height: 400, marginTop: 20 }}>
-                    <Cropper
-                        image={URL.createObjectURL(imageFile)}
-                        crop={crop}
-                        zoom={zoom}
-                        aspect={1}
-                        cropShape="round"
-                        showGrid={false}
-                        onCropChange={setCrop}
-                        onZoomChange={setZoom}
-                        onCropComplete={onCropComplete}
-                    />
-                </div>
-            )}
-
-            <button
-                onClick={handleUpload}
-                disabled={loading}
-                style={{ display: "block", marginTop: 30 }}
+            <select
+                value={connectTo}
+                onChange={e => setConnectTo(e.target.value)}
+                disabled={isFirst}
+                style={{ display: "block", marginBottom: 10 }}
             >
-                Upload
-            </button>
+                <option value="">
+                    {isFirst
+                        ? "First participant — no connection needed"
+                        : "Select someone to connect with"}
+                </option>
 
-            {status && <p>{status}</p>}
+                {nodes.map(n => (
+                    <option key={n.id} value={n.id}>
+                        {n.name}
+                    </option>
+                ))}
+            </select>
+
+            <button onClick={handleSubmit}>Submit</button>
+
+            <p>{status}</p>
         </div>
     )
 }
