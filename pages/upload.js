@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react"
 
 export default function UploadPage() {
+
     const [name, setName] = useState("")
-    const [connectTo, setConnectTo] = useState("")
+    const [photo, setPhoto] = useState(null)
     const [nodes, setNodes] = useState([])
+    const [selected, setSelected] = useState([])
     const [status, setStatus] = useState("")
 
     useEffect(() => {
@@ -14,14 +16,44 @@ export default function UploadPage() {
 
     const isFirst = nodes.length === 0
 
-    async function handleSubmit() {
+    function toggle(id) {
+
+        if (selected.includes(id)) {
+            setSelected(selected.filter(x => x !== id))
+        } else {
+            setSelected([...selected, id])
+        }
+    }
+
+    function handleFile(e) {
+
+        const file = e.target.files[0]
+
+        if (!file) return
+
+        const reader = new FileReader()
+
+        reader.onload = () => {
+            setPhoto(reader.result)
+        }
+
+        reader.readAsDataURL(file)
+    }
+
+    async function submit() {
+
         if (!name) {
-            setStatus("❌ Please enter your name")
+            setStatus("Enter name")
             return
         }
 
-        if (!isFirst && !connectTo) {
-            setStatus("❌ Please select a connection")
+        if (!photo) {
+            setStatus("Upload photo")
+            return
+        }
+
+        if (!isFirst && selected.length === 0) {
+            setStatus("Select connection")
             return
         }
 
@@ -30,51 +62,105 @@ export default function UploadPage() {
         const res = await fetch("/api/upload", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, connectTo }),
+            body: JSON.stringify({
+                name,
+                photo,
+                connections: selected
+            })
         })
 
         if (!res.ok) {
-            setStatus("❌ Upload failed")
+            setStatus("Upload failed")
         } else {
-            setStatus("✅ Added to circle")
+            setStatus("Added!")
             setName("")
-            setConnectTo("")
+            setPhoto(null)
+            setSelected([])
         }
     }
 
     return (
-        <div style={{ padding: 40, background: "#000000", minHeight: "100vh" }}>
-            <h2>Join the Circle</h2>
+
+        <div style={{
+            padding: 40,
+            background: "#000",
+            color: "#fff",
+            minHeight: "100vh"
+        }}>
+
+            <h1>Join the Circle</h1>
 
             <input
-                placeholder="Your name"
+                placeholder="Your Name"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 style={{ display: "block", marginBottom: 15 }}
             />
 
-            <select
-                value={connectTo}
-                onChange={e => setConnectTo(e.target.value)}
-                disabled={isFirst}
-                style={{ display: "block", marginBottom: 10 }}
-            >
-                <option value="">
-                    {isFirst
-                        ? "First participant — no connection needed"
-                        : "Select someone to connect with"}
-                </option>
+            <input
+                type="file"
+                accept="image/*"
+                onChange={handleFile}
+                style={{ marginBottom: 20 }}
+            />
 
-                {nodes.map(n => (
-                    <option key={n.id} value={n.id}>
-                        {n.name}
-                    </option>
-                ))}
-            </select>
+            {!isFirst && (
 
-            <button onClick={handleSubmit}>Submit</button>
+                <>
+                    <h3>Select connections</h3>
+
+                    <div style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3,200px)",
+                        gap: 20
+                    }}>
+
+                        {nodes.map(n => (
+
+                            <div
+                                key={n.id}
+                                style={{
+                                    border: "1px solid #444",
+                                    padding: 10,
+                                    borderRadius: 10
+                                }}
+                            >
+
+                                <img
+                                    src={n.photo_url}
+                                    width="120"
+                                    height="120"
+                                    style={{
+                                        objectFit: "cover",
+                                        borderRadius: "50%"
+                                    }}
+                                />
+
+                                <p>{n.name}</p>
+
+                                <input
+                                    type="checkbox"
+                                    checked={selected.includes(n.id)}
+                                    onChange={() => toggle(n.id)}
+                                />
+
+                            </div>
+
+                        ))}
+
+                    </div>
+
+                </>
+            )}
+
+            <br />
+
+            <button onClick={submit}>
+                Submit
+            </button>
 
             <p>{status}</p>
+
         </div>
     )
 }

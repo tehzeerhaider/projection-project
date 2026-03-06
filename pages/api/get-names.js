@@ -6,9 +6,10 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
+
     const { data, error } = await supabase
         .from("nodes")
-        .select("id, name")
+        .select("id, name, photo_url")
         .order("created_at", { ascending: true })
 
     if (error) {

@@ -1,6 +1,3 @@
-// ==================================================
-// CONSTANTS
-// ==================================================
 const CANVAS_WIDTH = 3840
 const CANVAS_HEIGHT = 2160
 const CIRCLE_DIAMETER = 2000
@@ -10,9 +7,6 @@ const DOT_SIZE = 12
 const TEXT_SIZE = 14
 const MIN_DISTANCE = 26   // collision threshold
 
-// ==================================================
-// STATE
-// ==================================================
 const nodes = new Map()
 const connections = []
 
@@ -21,9 +15,6 @@ let confetti = []
 let anchorId = null
 let pulseFrame = 0
 
-// ==================================================
-// SETUP
-// ==================================================
 export async function setupP5(p, supabase) {
     p.createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
     p.textAlign(p.CENTER, p.CENTER)
@@ -58,9 +49,6 @@ export async function setupP5(p, supabase) {
         .subscribe()
 }
 
-// ==================================================
-// DRAW LOOP
-// ==================================================
 export function drawP5(p) {
     p.background(255)
 
@@ -74,9 +62,6 @@ export function drawP5(p) {
     pulseFrame++
 }
 
-// ==================================================
-// RENDERING
-// ==================================================
 function drawCircle(p) {
     p.noFill()
     p.stroke(220)
@@ -84,9 +69,6 @@ function drawCircle(p) {
     p.circle(center.x, center.y, CIRCLE_DIAMETER)
 }
 
-// ------------------
-// NODES
-// ------------------
 function drawNodes(p) {
     for (const node of nodes.values()) {
         const x = center.x + node.pos_x
@@ -101,9 +83,6 @@ function drawNodes(p) {
     }
 }
 
-// ------------------
-// CONNECTIONS (subtle pulse)
-// ------------------
 function drawConnections(p) {
     const alphaPulse = 120 + p.sin(pulseFrame * 0.03) * 40
     p.strokeWeight(1.5)
@@ -126,9 +105,6 @@ function drawConnections(p) {
     }
 }
 
-// ------------------
-// ANCHOR PULSE
-// ------------------
 function drawAnchorPulse(p) {
     if (!anchorId) return
     const anchor = nodes.get(anchorId)
@@ -146,9 +122,6 @@ function drawAnchorPulse(p) {
     p.circle(x, y, r)
 }
 
-// ==================================================
-// COLLISION AVOIDANCE (SOFT, STABLE)
-// ==================================================
 function resolveCollisions() {
     const list = Array.from(nodes.values())
 
@@ -175,9 +148,6 @@ function resolveCollisions() {
     }
 }
 
-// ==================================================
-// CONFETTI
-// ==================================================
 function spawnConfetti(p) {
     for (let i = 0; i < 40; i++) {
         confetti.push({
