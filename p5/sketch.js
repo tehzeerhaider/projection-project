@@ -92,16 +92,32 @@ function drawConnections(p) {
         const b = nodes.get(c.to_node)
         if (!a || !b) continue
 
-        // Convert color string to p5 color
         const colorA = typeof a.color === "string" ? p.color(a.color) : a.color
         p.stroke(colorA.levels[0], colorA.levels[1], colorA.levels[2], alphaPulse)
 
-        p.line(
-            center.x + a.pos_x,
-            center.y + a.pos_y,
-            center.x + b.pos_x,
-            center.y + b.pos_y
-        )
+        const x1 = center.x + a.pos_x
+        const y1 = center.y + a.pos_y
+        const x2 = center.x + b.pos_x
+        const y2 = center.y + b.pos_y
+
+        // Midpoint
+        const mx = (x1 + x2) / 2
+        const my = (y1 + y2) / 2
+
+        // Direction from center → midpoint
+        const dx = mx - center.x
+        const dy = my - center.y
+
+        // Curve outward
+        const curveStrength = 0.25
+        const cx = mx + dx * curveStrength
+        const cy = my + dy * curveStrength
+
+        p.noFill()
+        p.beginShape()
+        p.vertex(x1, y1)
+        p.quadraticVertex(cx, cy, x2, y2)
+        p.endShape()
     }
 }
 
