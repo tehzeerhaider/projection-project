@@ -104,14 +104,22 @@ function drawConnections(p) {
         const mx = (x1 + x2) / 2
         const my = (y1 + y2) / 2
 
-        // Direction from center → midpoint
-        const dx = mx - center.x
-        const dy = my - center.y
+        // Direction of the line
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const dist = Math.sqrt(dx * dx + dy * dy)
 
-        // Curve outward
-        const curveStrength = 0.25
-        const cx = mx + dx * curveStrength
-        const cy = my + dy * curveStrength
+        if (dist === 0) continue
+
+        // Perpendicular normalized vector
+        const nx = -dy / dist
+        const ny = dx / dist
+
+        // Slight curve (lift from middle)
+        const curveAmount = 50
+
+        const cx = mx + nx * curveAmount
+        const cy = my + ny * curveAmount
 
         p.noFill()
         p.beginShape()
