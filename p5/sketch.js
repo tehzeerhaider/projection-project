@@ -5,7 +5,7 @@ const CIRCLE_RADIUS = CIRCLE_DIAMETER / 2
 
 const DOT_SIZE = 12
 const TEXT_SIZE = 14
-const MIN_DISTANCE = 26   // collision threshold
+const MIN_DISTANCE = 26
 
 let hoveredNode = null
 let images = new Map()
@@ -40,7 +40,6 @@ export async function setupP5(p, supabase) {
     })
     connections.push(...c)
 
-    // Tap support (mobile)
     p.mousePressed = () => {
         for (const node of nodes.values()) {
             const x = center.x + node.pos_x
@@ -61,7 +60,6 @@ export async function setupP5(p, supabase) {
             nodes.set(pld.new.id, pld.new)
             if (!anchorId) anchorId = pld.new.id
 
-            // ✅ load image for new nodes
             if (pld.new.photo_url) {
                 p.loadImage(pld.new.photo_url, img => {
                     images.set(pld.new.id, img)
@@ -124,7 +122,6 @@ function drawNodes(p) {
         p.textSize(TEXT_SIZE)
     }
 
-    // ✅ only clear if nothing hovered this frame
     if (!foundHover) {
         hoveredNode = null
     }

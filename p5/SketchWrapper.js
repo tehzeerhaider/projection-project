@@ -18,7 +18,6 @@ export default function SketchWrapper({ supabase }) {
             p.setup = () => {
                 setupP5(p, supabase)
 
-                // grab canvas after creation
                 canvasRef.current = p.canvas
 
                 applyScale()
