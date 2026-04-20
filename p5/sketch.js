@@ -7,6 +7,8 @@ const DOT_SIZE = 12
 const TEXT_SIZE = 14
 const MIN_DISTANCE = 26   // collision threshold
 
+let hoveredNode = null
+let images = new Map()
 const nodes = new Map()
 const connections = []
 
@@ -29,14 +31,43 @@ export async function setupP5(p, supabase) {
     n.forEach(node => {
         nodes.set(node.id, node)
         if (!anchorId) anchorId = node.id
+
+        if (node.photo_url) {
+            p.loadImage(node.photo_url, img => {
+                images.set(node.id, img)
+            })
+        }
     })
     connections.push(...c)
+
+    // Tap support (mobile)
+    p.mousePressed = () => {
+        for (const node of nodes.values()) {
+            const x = center.x + node.pos_x
+            const y = center.y + node.pos_y
+
+            const d = p.dist(p.mouseX, p.mouseY, x, y)
+            if (d < DOT_SIZE * 2) {
+                hoveredNode = node
+                return
+            }
+        }
+        hoveredNode = null
+    }
 
     supabase
         .channel("nodes")
         .on("postgres_changes", { event: "INSERT", table: "nodes" }, pld => {
             nodes.set(pld.new.id, pld.new)
             if (!anchorId) anchorId = pld.new.id
+
+            // ✅ load image for new nodes
+            if (pld.new.photo_url) {
+                p.loadImage(pld.new.photo_url, img => {
+                    images.set(pld.new.id, img)
+                })
+            }
+
             spawnConfetti(p)
         })
         .subscribe()
@@ -58,6 +89,7 @@ export function drawP5(p) {
     drawNodes(p)
     drawAnchorPulse(p)
     updateConfetti(p)
+    drawHoveredImage(p)
 
     pulseFrame++
 }
@@ -70,16 +102,31 @@ function drawCircle(p) {
 }
 
 function drawNodes(p) {
+    let foundHover = false
+
     for (const node of nodes.values()) {
         const x = center.x + node.pos_x
         const y = center.y + node.pos_y
+
+        const d = p.dist(p.mouseX, p.mouseY, x, y)
+        if (d < DOT_SIZE * 2) {
+            hoveredNode = node
+            foundHover = true
+        }
 
         p.noStroke()
         p.fill(node.color)
         p.circle(x, y, DOT_SIZE)
 
         p.fill(0)
-        p.text(node.initials, x, y - 16)
+        p.textSize(TEXT_SIZE * 1.4)
+        p.text(node.initials, x, y - 18)
+        p.textSize(TEXT_SIZE)
+    }
+
+    // ✅ only clear if nothing hovered this frame
+    if (!foundHover) {
+        hoveredNode = null
     }
 }
 
@@ -100,22 +147,17 @@ function drawConnections(p) {
         const x2 = center.x + b.pos_x
         const y2 = center.y + b.pos_y
 
-        // Midpoint
         const mx = (x1 + x2) / 2
         const my = (y1 + y2) / 2
 
-        // Direction of the line
         const dx = x2 - x1
         const dy = y2 - y1
         const dist = Math.sqrt(dx * dx + dy * dy)
-
         if (dist === 0) continue
 
-        // Perpendicular normalized vector
         const nx = -dy / dist
         const ny = dx / dist
 
-        // Slight curve (lift from middle)
         const curveAmount = 50
 
         const cx = mx + nx * curveAmount
@@ -195,4 +237,19 @@ function updateConfetti(p) {
         p.circle(c.x, c.y, 3)
         if (c.life <= 0) confetti.splice(i, 1)
     }
+}
+
+function drawHoveredImage(p) {
+    if (!hoveredNode) return
+
+    const img = images.get(hoveredNode.id)
+    if (!img) return
+
+    const size = 140
+
+    // keep image inside canvas bounds
+    const x = Math.min(p.mouseX + 20, p.width - size - 10)
+    const y = Math.min(p.mouseY + 20, p.height - size - 10)
+
+    p.image(img, x, y, size, size)
 }

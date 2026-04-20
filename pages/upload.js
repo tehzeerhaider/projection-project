@@ -17,7 +17,6 @@ export default function UploadPage() {
     const isFirst = nodes.length === 0
 
     function toggle(id) {
-
         if (selected.includes(id)) {
             setSelected(selected.filter(x => x !== id))
         } else {
@@ -26,17 +25,13 @@ export default function UploadPage() {
     }
 
     function handleFile(e) {
-
         const file = e.target.files[0]
-
         if (!file) return
 
         const reader = new FileReader()
-
         reader.onload = () => {
             setPhoto(reader.result)
         }
-
         reader.readAsDataURL(file)
     }
 
@@ -82,7 +77,7 @@ export default function UploadPage() {
     return (
 
         <div style={{
-            padding: 40,
+            padding: 20,
             background: "#000",
             color: "#fff",
             minHeight: "100vh"
@@ -94,7 +89,13 @@ export default function UploadPage() {
                 placeholder="Your Name"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                style={{ display: "block", marginBottom: 15 }}
+                style={{
+                    display: "block",
+                    marginBottom: 15,
+                    padding: 10,
+                    width: "100%",
+                    maxWidth: 400
+                }}
             />
 
             <input
@@ -109,44 +110,60 @@ export default function UploadPage() {
                 <>
                     <h3>Select connections</h3>
 
+                    <p>Selected: {selected.length}</p>
+
                     <div style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3,200px)",
-                        gap: 20
+                        maxHeight: "60vh",
+                        overflowY: "auto",
+                        paddingRight: 10
                     }}>
 
-                        {nodes.map(n => (
+                        <div style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                            gap: 16
+                        }}>
 
-                            <div
-                                key={n.id}
-                                style={{
-                                    border: "1px solid #444",
-                                    padding: 10,
-                                    borderRadius: 10
-                                }}
-                            >
+                            {nodes.map(n => (
 
-                                <img
-                                    src={n.photo_url}
-                                    width="120"
-                                    height="120"
+                                <div
+                                    key={n.id}
+                                    onClick={() => toggle(n.id)}
                                     style={{
-                                        objectFit: "cover",
-                                        borderRadius: "50%"
+                                        border: selected.includes(n.id)
+                                            ? "2px solid #0f0"
+                                            : "1px solid #444",
+                                        padding: 10,
+                                        borderRadius: 10,
+                                        textAlign: "center",
+                                        cursor: "pointer"
                                     }}
-                                />
+                                >
 
-                                <p>{n.name}</p>
+                                    <img
+                                        src={n.photo_url}
+                                        style={{
+                                            width: "100%",
+                                            aspectRatio: "1 / 1",
+                                            objectFit: "cover",
+                                            borderRadius: "50%"
+                                        }}
+                                    />
 
-                                <input
-                                    type="checkbox"
-                                    checked={selected.includes(n.id)}
-                                    onChange={() => toggle(n.id)}
-                                />
+                                    <p style={{ marginTop: 8 }}>{n.name}</p>
 
-                            </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={selected.includes(n.id)}
+                                        onChange={() => toggle(n.id)}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
 
-                        ))}
+                                </div>
+
+                            ))}
+
+                        </div>
 
                     </div>
 
