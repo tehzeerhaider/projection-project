@@ -39,6 +39,8 @@ export default function SketchWrapper({ supabase }) {
 
             canvasRef.current.style.transform = `scale(${scale})`
             canvasRef.current.style.transformOrigin = "top left"
+            window.currentP5Scale = scale
+
         }
 
         return () => {

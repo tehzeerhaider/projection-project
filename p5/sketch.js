@@ -41,11 +41,15 @@ export async function setupP5(p, supabase) {
     connections.push(...c)
 
     p.mousePressed = () => {
+        const scale = window.currentP5Scale || 1
+        const mx = p.mouseX / scale
+        const my = p.mouseY / scale
+
         for (const node of nodes.values()) {
             const x = center.x + node.pos_x
             const y = center.y + node.pos_y
 
-            const d = p.dist(p.mouseX, p.mouseY, x, y)
+            const d = p.dist(mx, my, x, y)
             if (d < DOT_SIZE * 2) {
                 hoveredNode = node
                 return
@@ -100,13 +104,17 @@ function drawCircle(p) {
 }
 
 function drawNodes(p) {
+    const scale = window.currentP5Scale || 1
+    const mouseX = p.mouseX / scale
+    const mouseY = p.mouseY / scale
+
     let foundHover = false
 
     for (const node of nodes.values()) {
         const x = center.x + node.pos_x
         const y = center.y + node.pos_y
 
-        const d = p.dist(p.mouseX, p.mouseY, x, y)
+        const d = p.dist(mouseX, mouseY, x, y)
         if (d < DOT_SIZE * 2) {
             hoveredNode = node
             foundHover = true
@@ -244,9 +252,11 @@ function drawHoveredImage(p) {
 
     const size = 140
 
-    // keep image inside canvas bounds
-    const x = Math.min(p.mouseX + 20, p.width - size - 10)
-    const y = Math.min(p.mouseY + 20, p.height - size - 10)
+    const nodeX = center.x + hoveredNode.pos_x
+    const nodeY = center.y + hoveredNode.pos_y
+
+    const x = nodeX - size / 2
+    const y = nodeY - size - 20
 
     p.image(img, x, y, size, size)
 }
